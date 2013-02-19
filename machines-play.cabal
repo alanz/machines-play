@@ -1,0 +1,19 @@
+
+name:                machines-play
+version:             0.1.0.0
+synopsis:            Playing with Haskell Machines
+-- description:         
+homepage:            https://github.com/alanz/machines-play
+license:             BSD3
+license-file:        LICENSE
+author:              Alan Zimmerman
+maintainer:          alan.zimm@gmail.com
+-- copyright:           
+category:            Control
+build-type:          Simple
+cabal-version:       >=1.8
+
+executable machines-play
+  main-is:             Main.lhs
+  -- other-modules:       
+  build-depends:       base ==4.5.*, machines ==0.3.*, transformers ==0.3.*
