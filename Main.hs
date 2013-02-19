@@ -1,6 +1,7 @@
-> {-# LANGUAGE TypeOperators #-} -- For :+: in signatures
-> import Data.Machine
+{-# LANGUAGE TypeOperators #-} -- For :+: in signatures
+import Data.Machine
 
+{-
 Simplest possible machine
 -------------------------
 
@@ -14,29 +15,33 @@ with monadic effect
 A Machine gets built from a Plan. The simplest possible plan is simply
 
   yield a
+-}
 
-> plana :: Plan Char IO ()
-> plana = yield 'a'
+plana :: Plan Char IO ()
+plana = yield 'a'
 
+{-
 We make a Machine from the Plan. The type context must be properly
 defined or the construction will fail
 
   construct :: Plan o m a -> Machine m o
   construct plana :: Machine IO Char
+-}
 
-> simplest :: IO [Char]
-> simplest = run $ construct plana
+simplest :: IO [Char]
+simplest = run $ construct plana
 
+{-
 *Main> simplest
 "a"
 *Main>
 
 Slightly more complex one, repeated data
 ----------------------------------------
-
-> schar :: Source Char
-> schar = source "abcde"
-
+-}
+schar :: Source Char
+schar = source "abcde"
+{-
 Note:
 *Main> :t schar
 schar :: Machine m Char
@@ -45,10 +50,10 @@ schar :: Machine m Char
 "abcde"
 
 A process that does not let the character b through
-
-> nob :: Process Char Char
-> nob = filtered (/='b')
-
+-}
+nob :: Process Char Char
+nob = filtered (/='b')
+{-
 *Main> :t schar ~> nob
 schar ~> nob :: Machine m Char
 *Main> run $ schar ~> nob
@@ -126,26 +131,29 @@ A 'Machine' that can read from two input stream in a deterministic
 manner.
 
 So lets try interleaving input from two sources
-
-> streama,streamb :: Machine m Char
-> streama = source "abcdef"
-> streamb = source "vwxyz"
-
+-}
+streama,streamb :: Machine m Char
+streama = source "abcdef"
+streamb = source "vwxyz"
+{-
 :t tee streama streamb
 tee streama streamb :: Tee Char Char c -> Machine (m :+: n) c
 
 I think the following is defined to read from two streams of Char, and
 generate output of Char
+-}
+myTee :: Tee Char Char Char
+myTee = ff
 
-> myTee :: Tee Char Char Char
-> myTee = ff
-
-> ff :: Machine ((->) Char :+: (->) Char) Char
-> ff = source "pqrstu"
- 
+ff :: Machine ((->) Char :+: (->) Char) Char
+ff = source "pqrstu"
+{- 
  
 *Main> :t tee streama streamb myTee
 tee streama streamb myTee :: Machine (m :+: n) Char
 *Main>
 
 
+-}
+
+main = putStrLn "done"
