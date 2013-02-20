@@ -130,30 +130,69 @@ What is a Tee?
 A 'Machine' that can read from two input stream in a deterministic
 manner.
 
+Firstly
+
+-- | The input descriptor for a 'Tee' or 'TeeT'.
+data (m :+: n) a = L (m a) | R (n a)
+  deriving (Functor, Foldable, Traversable)
+
+This defines a type which can either have an L value or an R one, and
+takes a function (or Monad) generating the expected output type 'a'
+depending on which kind of input is presented.
+
+-}
+tinput :: ( IO :+: ((->) Int)) Char -> Char
+tinput (L _) = 'a'
+tinput (R _) = 'b'
+
+{-
+
+
 So lets try interleaving input from two sources
 -}
 streama,streamb :: Machine m Char
-streama = source "abcdef"
+streama = source "abcde"
 streamb = source "vwxyz"
 {-
 :t tee streama streamb
 tee streama streamb :: Tee Char Char c -> Machine (m :+: n) c
 
+
 I think the following is defined to read from two streams of Char, and
 generate output of Char
 -}
+
+myInterleave :: Tee Char Char Char -> Machine (((->) Char) :+: ((->) Char)) Char
+myInterleave = tee streama streamb 
+
 myTee :: Tee Char Char Char
-myTee = ff
+myTee = repeatedly $ do
+  x <- request (L (const 'a'))
+  yield 'a'
+  y <- request (R (const 'b'))
+  yield 'b'
 
-ff :: Machine ((->) Char :+: (->) Char) Char
-ff = source "pqrstu"
-{- 
- 
-*Main> :t tee streama streamb myTee
-tee streama streamb myTee :: Machine (m :+: n) Char
+-- myInterleave' :: Machine ((a -> Char) :+: (b -> Char)) Char
+myInterleave' :: Machine (m :+: n) Char
+myInterleave' = tee streama streamb myTee
+
+mm :: Machine m Char
+mm = fit cappedT myInterleave'
+{-
+
+*Main> run mm
+"abababababa"
 *Main>
-
 
 -}
 
+-- Copied from Data.Machine.Tee
+-- | Natural transformation used by 'capL' and 'capR'.
+cappedT :: (f :+: f) a -> f a
+cappedT (R f) = f
+cappedT (L f) = f
+
+
 main = putStrLn "done"
+
+
