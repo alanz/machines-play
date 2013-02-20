@@ -167,10 +167,10 @@ myInterleave = tee streama streamb
 
 myTee :: Tee Char Char Char
 myTee = repeatedly $ do
-  x <- request (L (const 'a'))
-  yield 'a'
-  y <- request (R (const 'b'))
-  yield 'b'
+  x <- request (L await)
+  yield x
+  y <- request (R await)
+  yield y
 
 -- myInterleave' :: Machine ((a -> Char) :+: (b -> Char)) Char
 myInterleave' :: Machine (m :+: n) Char
@@ -181,8 +181,8 @@ mm = fit cappedT myInterleave'
 {-
 
 *Main> run mm
-"abababababa"
-*Main>
+"avbwcxdyez"
+*Main> 
 
 -}
 
