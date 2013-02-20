@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeOperators #-} -- For :+: in signatures
+{-# LANGUAGE NoMonomorphismRestriction #-} 
 import Data.Machine
 
 {-
@@ -191,7 +192,54 @@ mm = fit cappedT myInterleave'
 cappedT :: (f :+: f) a -> f a
 cappedT (R f) = f
 cappedT (L f) = f
+{-# INLINE cappedT #-}
 
+-- ---------------------------------------------------------------------
+
+{-
+ Exploring the Wye
+
+-}
+
+myWye :: Wye Char Char Char
+myWye = repeatedly $ do
+  x <- await
+  case x of
+    Left l -> yield l
+    Right r -> yield r
+
+wm :: (Functor m, Functor n) => Machine (Y m n) Char
+wm = wye streama streamb myWye
+
+wmm :: (Functor m) => Machine m Char
+wmm = fit (capped (const id)) wm
+
+foo :: Int -> Char
+foo = undefined
+
+-- Copied from Data.Machine.Wye
+-- | Natural transformation used by 'capX' and 'capY'
+capped :: (f a -> f a -> f a) -> Y f f a -> f a
+capped _ (This f)    = f
+capped _ (That g)    = g
+capped z (These f g) = z f g
+{-# INLINE capped #-}
+
+{-
+Note: prioritises the one source over the other. This is a feature of 'wye'
+*Main> run wmm
+"abcdevwxyz"
+*Main> 
+-}
+
+-- Handle different length input
+wmm' :: Functor m => Machine m Char
+wmm' = fit (capped (const id)) $ wye (source "abc") (source "123456") myWye
+{-
+*Main> run wmm'
+"abc123456"
+*Main>
+-}
 
 main = putStrLn "done"
 
