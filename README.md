@@ -10,5 +10,8 @@ quite a bit.
 This is an experiment with machines, intending to show working
 examples of the various constructs.
 
+Please note that ekmett abandoned the 0.3 version,
+
+<edwardk> it is still experimental, i still advocate conduits and pipes over it for most usecass
 
 
