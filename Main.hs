@@ -495,24 +495,28 @@ T  : S × Σ → S × Λ =
 
 -}
 
-data XState = S0 | S1 | Si deriving (Eq,Show)
 
 data XIn = I0 | I1 deriving (Eq,Show)
+
+data XOut = O0 | O1 deriving (Eq,Show)
+
+data XState = S0 XOut | S1 XOut | Si XOut deriving (Eq,Show)
+
 
 m3Mealy :: XIn -> (XState, Mealy XIn XState)
 m3Mealy = m3TransitionFmSi
 
 m3TransitionFmSi :: XIn -> (XState, Mealy XIn XState)
-m3TransitionFmSi I0 = (S0,Mealy m3TransitionFmS0)
-m3TransitionFmSi I1 = (S1,Mealy m3TransitionFmS1)
+m3TransitionFmSi I0 = (S0 O0,Mealy m3TransitionFmS0)
+m3TransitionFmSi I1 = (S1 O0,Mealy m3TransitionFmS1)
 
 m3TransitionFmS0 :: XIn -> (XState, Mealy XIn XState)
-m3TransitionFmS0 I0 = (S0,Mealy m3TransitionFmS0)
-m3TransitionFmS0 I1 = (S1,Mealy m3TransitionFmS1)
+m3TransitionFmS0 I0 = (S0 O0,Mealy m3TransitionFmS0)
+m3TransitionFmS0 I1 = (S1 O1,Mealy m3TransitionFmS1)
 
 m3TransitionFmS1 :: XIn -> (XState, Mealy XIn XState)
-m3TransitionFmS1 I0 = (S0,Mealy m3TransitionFmS0)
-m3TransitionFmS1 I1 = (S1,Mealy m3TransitionFmS1)
+m3TransitionFmS1 I0 = (S0 O1,Mealy m3TransitionFmS0)
+m3TransitionFmS1 I1 = (S1 O0,Mealy m3TransitionFmS1)
 
 m3 :: Mealy XIn XState
 m3 = Mealy m3TransitionFmSi
@@ -526,6 +530,63 @@ m3m = (source [I0,I0,I1,I1,I0,I0]) ~> m3a
 
 {-
 *Main> run m3m
-[S0,S0,S1,S1,S0,S0]
+[S0 O0,S0 O0,S1 O1,S1 O0,S0 O1,S0 O0]
 *Main>
 -}
+
+-- ---------------------------------------------------------------------
+
+-- |Transition function from state M4A
+m4TransitionFmSi :: XIn -> Moore XIn XState
+m4TransitionFmSi I0 = Moore (S0 O0) m4TransitionFmS0
+m4TransitionFmSi I1 = Moore (S1 O0) m4TransitionFmS1
+
+m4TransitionFmS0 I0 = Moore (S0 O0) m4TransitionFmS0
+m4TransitionFmS0 I1 = Moore (S1 O1) m4TransitionFmS1
+
+m4TransitionFmS1 I0 = Moore (S0 O1) m4TransitionFmS0
+m4TransitionFmS1 I1 = Moore (S1 O0) m4TransitionFmS1
+
+
+-- |Starting state and transitions for the machine
+m4 :: Moore XIn XState
+m4 = Moore (Si O0) m4TransitionFmSi
+
+-- Turn the Moore state machine into a process
+m4a :: Monad m => MachineT m (Is XIn) XState
+m4a = auto m4
+
+m4m :: Monad m => MachineT m k XState
+m4m = (source [I0,I0,I0,I1,I1,I1,I0,I0]) ~> m4a
+
+{-
+*Main> run m4m
+[Si O0,S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
+*Main>
+-}
+
+{-
+[Si O0
+,S0 O0
+,S0 O0
+,S0 O0
+,S1 O1
+,S1 O0
+,S1 O0
+,S0 O1
+,S0 O0]
+-}
+-- ---------------------------------------------------------------------
+
+fMealy = undefined
+
+-- unfoldMealy :: (s -> a -> (b, s)) -> s -> Mealy a b
+
+m5 = unfoldMealy fMealy
+
+-- | A 'Mealy' machine modeled with explicit state.
+unfoldMealy1 :: (s -> a -> (b, s)) -> s -> Mealy a b
+unfoldMealy1 f = go where
+  go s = Mealy $ \a -> case f s a of
+    (b, t) -> (b, go t)
+{-# INLINE unfoldMealy1 #-}
