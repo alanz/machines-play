@@ -526,11 +526,11 @@ m3a :: Monad m => MachineT m (Is XIn) XState
 m3a = auto m3
 
 m3m :: Monad m => MachineT m k XState
-m3m = (source [I0,I0,I1,I1,I0,I0]) ~> m3a
+m3m = (source [I0,I0,I0,I1,I1,I1,I0,I0]) ~> m3a
 
 {-
 *Main> run m3m
-[S0 O0,S0 O0,S1 O1,S1 O0,S0 O1,S0 O0]
+[S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
 *Main>
 -}
 
@@ -576,6 +576,10 @@ m4m = (source [I0,I0,I0,I1,I1,I1,I0,I0]) ~> m4a
 ,S0 O1
 ,S0 O0]
 -}
+
+-- Meally [Si O0,S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
+-- Moore        [S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
+
 -- ---------------------------------------------------------------------
 
 fMealy = undefined
