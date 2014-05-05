@@ -327,3 +327,205 @@ Note: prioritises the one source over the other. This is a feature of 'wye'
 main = putStrLn "done"
 
 
+{-
+
+Experimenting with state machines
+----------------------------------
+
+Moore Machine : output values are determined solely by its current state.
+
+  data Moore a b
+    Constructors
+      Moore b (a -> Moore a b)
+
+
+Mealy Machine : output values are determined both by its current state and
+                the current inputs.
+
+  newtype Mealy a b
+    Constructors
+      Mealy runMealy :: a -> (b, Mealy a b)
+
+
+Construct a Moore machine from a state valuation and transition function
+
+  unfoldMoore :: (s -> (b, a -> s)) -> s -> Moore a b
+
+
+-}
+
+{-
+
+Construct a simple Moore machine
+--------------------------------
+
+This will have two states, and every time there is an input it changes
+state.
+
+-}
+
+data M1State = M1A | M1B deriving (Eq,Show)
+
+-- We will arbitrarily choose a Char type for input
+
+-- |Transition function from state M1A
+m1TransitionFmA :: Char -> Moore Char M1State
+m1TransitionFmA _ = Moore M1B m1TransitionFmB
+
+-- |Transition function from state M1B
+m1TransitionFmB :: Char -> Moore Char M1State
+m1TransitionFmB _ = Moore M1A m1TransitionFmA
+
+-- |Starting state and transitions for the machine
+m1 :: Moore Char M1State
+m1 = Moore M1A m1TransitionFmA
+
+-- Turn the Moore state machine into a process
+m1a :: Monad m => MachineT m (Is Char) M1State
+m1a = auto m1
+
+m1m :: Monad m => MachineT m k M1State
+m1m = (source "abcde") ~> m1a
+
+{-
+*Main> run m1m
+[M1A,M1B,M1A,M1B,M1A,M1B]
+*Main>
+-}
+
+{-
+
+Construct a simple Mealy machine
+--------------------------------
+
+This will have two states, and every time there is an input it changes
+state, and outputs the char used to transition.
+
+  data Moore a b
+    Constructors
+      Moore b (a -> Moore a b)
+
+  newtype Mealy a b
+    Constructors
+      Mealy runMealy :: a -> (b, Mealy a b)
+
+-}
+
+m2Mealy :: Char -> (M1State, Mealy Char M1State)
+m2Mealy = m2TransitionFmA
+
+m2TransitionFmA :: Char -> (M1State, Mealy Char M1State)
+m2TransitionFmA _ = (M1B,Mealy m2TransitionFmB)
+
+m2TransitionFmB :: Char -> (M1State, Mealy Char M1State)
+m2TransitionFmB _ = (M1A,Mealy m2TransitionFmA)
+
+m2 :: Mealy Char M1State
+m2 = Mealy m2TransitionFmA
+
+-- Turn the Mealy state machine into a process
+m2a :: Monad m => MachineT m (Is Char) M1State
+m2a = auto m2
+
+m2m :: Monad m => MachineT m k M1State
+m2m = (source "abcde") ~> m2a
+
+{-
+*Main> run m2m
+[M1B,M1A,M1B,M1A,M1B]
+*Main>
+-}
+
+-- How is this different from the Moore machine?
+
+--  Moore   b (a -> Moore a b)
+--  Mealy (a -> (b, Mealy a b))
+
+-- Moore gives a state, and a function mapping from input to next state
+-- Mealy gives a function mapping from input to next (state,transition)
+
+-- When they run we only see the state as output.
+
+{-
+A Moore machine can be defined as a 6-tuple ( S, S0, Σ, Λ, T, G ) consisting of the following:
+
+    a finite set of states ( S )
+    a start state (also called initial state) S0 which is an element of (S)
+    a finite set called the input alphabet ( Σ )
+    a finite set called the output alphabet ( Λ )
+    a transition function (T : S × Σ → S) mapping a state and the input alphabet to the next state
+    an output function (G : S → Λ) mapping each state to the output alphabet
+
+A Moore machine can be regarded as a restricted type of finite state transducer.
+
+
+A Mealy machine is a 6-tuple, (S, S0, Σ, Λ, T, G), consisting of the following:
+
+    a finite set of states (S)
+    a start state (also called initial state) S0 which is an element of (S)
+    a finite set called the input alphabet (Σ)
+    a finite set called the output alphabet (Λ)
+    a transition function (T : S × Σ → S) mapping pairs of a state and an input symbol to the corresponding next state.
+    an output function (G : S × Σ → Λ) mapping pairs of a state and an input symbol to the corresponding output symbol.
+
+In some formulations, the transition and output functions are coalesced into a single function (T : S × Σ → S × Λ).
+
+
+It seems that in this formulation the states and output alphabet have been coalesced
+-}
+
+{-
+
+Mealy XOR example from https://en.wikipedia.org/wiki/Mealy_machine
+[Note, seems to be an error in the diagram, two states labelled S1]
+
+S = { S0,S1,Si}
+S0 = Si
+Σ = {0,1}
+Λ = {0,1}
+T  : S × Σ → S × Λ =
+  Si 0 -> (S0,0)
+  Si 1 -> (S1,0)
+
+  S0 0 -> (S0,0)
+  S0 1 -> (S1,1)
+
+  S1 0 -> (S0,1)
+  S1 1 -> (S1,0)
+
+-}
+
+data XState = S0 | S1 | Si deriving (Eq,Show)
+
+data XIn = I0 | I1 deriving (Eq,Show)
+
+m3Mealy :: XIn -> (XState, Mealy XIn XState)
+m3Mealy = m3TransitionFmSi
+
+m3TransitionFmSi :: XIn -> (XState, Mealy XIn XState)
+m3TransitionFmSi I0 = (S0,Mealy m3TransitionFmS0)
+m3TransitionFmSi I1 = (S1,Mealy m3TransitionFmS1)
+
+m3TransitionFmS0 :: XIn -> (XState, Mealy XIn XState)
+m3TransitionFmS0 I0 = (S0,Mealy m3TransitionFmS0)
+m3TransitionFmS0 I1 = (S1,Mealy m3TransitionFmS1)
+
+m3TransitionFmS1 :: XIn -> (XState, Mealy XIn XState)
+m3TransitionFmS1 I0 = (S0,Mealy m3TransitionFmS0)
+m3TransitionFmS1 I1 = (S1,Mealy m3TransitionFmS1)
+
+m3 :: Mealy XIn XState
+m3 = Mealy m3TransitionFmSi
+
+-- Turn the Mealy state machine into a process
+m3a :: Monad m => MachineT m (Is XIn) XState
+m3a = auto m3
+
+m3m :: Monad m => MachineT m k XState
+m3m = (source [I0,I0,I1,I1,I0,I0]) ~> m3a
+
+{-
+*Main> run m3m
+[S0,S0,S1,S1,S0,S0]
+*Main>
+-}
