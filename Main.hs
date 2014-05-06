@@ -5,6 +5,7 @@
 
 import Data.Char
 import Data.Machine
+import qualified Data.Map as Map
 
 
 {-
@@ -364,7 +365,7 @@ state.
 
 -}
 
-data M1State = M1A | M1B deriving (Eq,Show)
+data M1State = M1A | M1B deriving (Eq,Show,Ord)
 
 -- We will arbitrarily choose a Char type for input
 
@@ -496,7 +497,7 @@ T  : S × Σ → S × Λ =
 -}
 
 
-data XIn = I0 | I1 deriving (Eq,Show)
+data XIn = I0 | I1 deriving (Eq,Show,Ord)
 
 data XOut = O0 | O1 deriving (Eq,Show)
 
@@ -580,13 +581,72 @@ m4m = (source [I0,I0,I0,I1,I1,I1,I0,I0]) ~> m4a
 -- Meally [Si O0,S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
 -- Moore        [S0 O0,S0 O0,S0 O0,S1 O1,S1 O0,S1 O0,S0 O1,S0 O0]
 
+-- -----------------------------------------------
+
+-- understanding unfoldMoore
+-- -------------------------
+
+-- [copied here for inspection]
+
+-- | Construct a Moore machine from a state valuation and transition function
+unfoldMoore1 :: (s -> (b, a -> s)) -> s -> Moore a b
+unfoldMoore1 f = go where
+  go s = case f s of
+    (b, g) -> Moore b (go . g)
+{-# INLINE unfoldMoore1 #-}
+
+{-
+
+First call uses s to generate
+  (b, a -> s)  -- current state, function from input seen to next state
+
+Redoing the first two state example, using XIn:
+-}
+
+
+m6Fm1A :: XIn -> M1State
+m6Fm1A _ = M1B
+
+m6Fm1B :: XIn -> M1State
+m6Fm1B _ = M1A
+
+fMoore :: M1State -> (M1State, XIn -> M1State)
+fMoore M1A = (M1A,m6Fm1A)
+fMoore M1B = (M1B,m6Fm1B)
+
+m6 :: Moore XIn M1State
+m6 = unfoldMoore fMoore M1A
+
+m6m :: Monad m => MachineT m k M1State
+m6m = (source [I0,I1,I1,I1,I0]) ~> auto m6
+
+{-
+*Main> run m6m
+[M1A,M1B,M1A,M1B,M1A,M1B]
+*Main>
+-}
+
 -- ---------------------------------------------------------------------
 
-fMealy = undefined
+--  newtype Mealy a b
+--    Constructors
+--      Mealy runMealy :: a -> (b, Mealy a b)
 
 -- unfoldMealy :: (s -> a -> (b, s)) -> s -> Mealy a b
 
-m5 = unfoldMealy fMealy
+-- Here a is XIn,
+--      b is XState
+
+initial :: [s]
+initial = []
+
+fMealy :: [s] -> XIn -> (XState,[s])
+fMealy [] = error "empty list"
+-- fMealy (x:xs)
+
+
+m5 :: Mealy XIn XState
+m5 = unfoldMealy fMealy initial
 
 -- | A 'Mealy' machine modeled with explicit state.
 unfoldMealy1 :: (s -> a -> (b, s)) -> s -> Mealy a b
@@ -594,3 +654,4 @@ unfoldMealy1 f = go where
   go s = Mealy $ \a -> case f s a of
     (b, t) -> (b, go t)
 {-# INLINE unfoldMealy1 #-}
+

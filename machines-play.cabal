@@ -18,3 +18,4 @@ executable machines-play
   build-depends:       base <= 4.7
                      , machines < 0.3
                      , transformers ==0.3.*
+                     , containers
