@@ -352,20 +352,27 @@ Construct a Moore machine from a state valuation and transition function
 
   unfoldMoore :: (s -> (b, a -> s)) -> s -> Moore a b
 
+In the following examples, we use @auto@ which comes from the
+@'Data.Machine.Process.Automaton'@ typeclass:
 
+@
+  auto :: k a b -> Process a b
+@
+
+This means that we can take some routing function, @k a b@, and lift it
+into a process. You can think of this as a specific @'construct'@ for
+automatons.
 -}
 
-{-
-
-Construct a simple Moore machine
---------------------------------
-
-This will have two states, and every time there is an input it changes
-state.
-
--}
+-- For this next section, let's have two states and construct a simple state
+-- machine the state flips every time there is a new input. We'll use this
+-- state machine for the first examples of Moore and Mealy machines.
 
 data M1State = M1A | M1B deriving (Eq,Show,Ord)
+
+
+-- Construct a simple Moore machine
+-- --------------------------------
 
 -- We will arbitrarily choose a Char type for input
 
@@ -381,7 +388,10 @@ m1TransitionFmB _ = Moore M1A m1TransitionFmA
 m1 :: Moore Char M1State
 m1 = Moore M1A m1TransitionFmA
 
--- Turn the Moore state machine into a process
+-- Turn the Moore state machine into a process.
+--
+-- Recall the definition of a process:
+-- > type ProcessT m a b = MachineT m (Is a) b
 m1a :: Monad m => MachineT m (Is Char) M1State
 m1a = auto m1
 
@@ -411,9 +421,6 @@ state, and outputs the char used to transition.
       Mealy runMealy :: a -> (b, Mealy a b)
 
 -}
-
-m2Mealy :: Char -> (M1State, Mealy Char M1State)
-m2Mealy = m2TransitionFmA
 
 m2TransitionFmA :: Char -> (M1State, Mealy Char M1State)
 m2TransitionFmA _ = (M1B,Mealy m2TransitionFmB)
@@ -448,31 +455,25 @@ m2m = (source "abcde") ~> m2a
 -- When they run we only see the state as output.
 
 {-
-A Moore machine can be defined as a 6-tuple ( S, S0, Σ, Λ, T, G ) consisting of the following:
+Mealy and Moore machines can both be represented by a 6-tuple, ( S, S0, Σ, Λ, T, G ), consisting of the following:
 
-    a finite set of states ( S )
-    a start state (also called initial state) S0 which is an element of (S)
-    a finite set called the input alphabet ( Σ )
-    a finite set called the output alphabet ( Λ )
-    a transition function (T : S × Σ → S) mapping a state and the input alphabet to the next state
-    an output function (G : S → Λ) mapping each state to the output alphabet
+    - a finite set of states ( S )
+    - a start state (also called initial state) S0 which is an element of (S)
+    - a finite set called the input alphabet ( Σ )
+    - a finite set called the output alphabet ( Λ )
+    - a transition function (T : S × Σ → S)
+      - for Moore machines, this is a mapping from a _single state_ and the input alphabet to the next state.
+      - for Mealy machines, this is a mapping from a _pair of states_ and the input alphabet to the next state.
+    - an output function (G : S → Λ)
+      - for Moore machines, this maps each _state_ and an input symbol to the corresponding output symbol.
+      - for Mealy machines, this maps each _pair of states_ and an input symbol to the corresponding output symbol.
+
+Sometimes it's simpler to read if you unify the transition and output functions into a single function (T : S × Σ → S × Λ)
 
 A Moore machine can be regarded as a restricted type of finite state transducer.
 
+-- FIXME: add a little more depth as to what a "restricted type" means and if a Mealy machine is one too
 
-A Mealy machine is a 6-tuple, (S, S0, Σ, Λ, T, G), consisting of the following:
-
-    a finite set of states (S)
-    a start state (also called initial state) S0 which is an element of (S)
-    a finite set called the input alphabet (Σ)
-    a finite set called the output alphabet (Λ)
-    a transition function (T : S × Σ → S) mapping pairs of a state and an input symbol to the corresponding next state.
-    an output function (G : S × Σ → Λ) mapping pairs of a state and an input symbol to the corresponding output symbol.
-
-In some formulations, the transition and output functions are coalesced into a single function (T : S × Σ → S × Λ).
-
-
-It seems that in this formulation the states and output alphabet have been coalesced
 -}
 
 {-
@@ -583,22 +584,34 @@ m4m = (source [I0,I0,I0,I1,I1,I1,I0,I0]) ~> m4a
 
 -- -----------------------------------------------
 
--- understanding unfoldMoore
--- -------------------------
-
--- [copied here for inspection]
-
--- | Construct a Moore machine from a state valuation and transition function
-unfoldMoore1 :: (s -> (b, a -> s)) -> s -> Moore a b
-unfoldMoore1 f = go where
-  go s = case f s of
-    (b, g) -> Moore b (go . g)
-{-# INLINE unfoldMoore1 #-}
-
 {-
+understanding unfoldMoore
+-------------------------
 
-First call uses s to generate
-  (b, a -> s)  -- current state, function from input seen to next state
+from https://hackage.haskell.org/package/machines-0.6.1/docs/src/Data-Machine-Moore.html
+the definition of unfoldMoore is:
+
+@
+    -- | Construct a Moore machine from a state valuation and transition function
+    unfoldMoore :: (s -> (b, a -> s)) -> s -> Moore a b
+    unfoldMoore f = go where
+      go s = case f s of
+        (b, g) -> Moore b (go . g)
+    {-# INLINE unfoldMoore #-}
+@
+
+Let's take a longer look at the type signature with some psuedo-haskell:
+
+@
+    unfoldMoore ::
+      (s ->            -- a transition function which takes a state to generate...
+        (,)            -- a combination of...
+         b             -- ...whatever lives in the current state (b)
+        (a -> s)       -- ...plus a function that takes seen input (a) and steps us to the next state
+      )
+      -> s             -- constructing a Moore requires an explicit state to kick things off
+      -> Moore a b     -- and finally, we get back what we want
+@
 
 Redoing the first two state example, using XIn:
 -}
@@ -614,9 +627,15 @@ fMoore :: M1State -> (M1State, XIn -> M1State)
 fMoore M1A = (M1A,m6Fm1A)
 fMoore M1B = (M1B,m6Fm1B)
 
+
+-- So here, we can see that we can lift a function with the
+-- shape of a Moore, into a Moore, if we have all the right
+-- pieces
 m6 :: Moore XIn M1State
 m6 = unfoldMoore fMoore M1A
 
+-- furthermoore ; D, as expected, this fits right back into our machines
+-- infrastructure. No plan nessecary.
 m6m :: Monad m => MachineT m k M1State
 m6m = (source [I0,I1,I1,I1,I0]) ~> auto m6
 
