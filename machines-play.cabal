@@ -15,7 +15,7 @@ cabal-version:       >=1.8
 executable machines-play
   main-is:             Main.hs
   -- other-modules:       
-  build-depends:       base <= 4.7
-                     , machines < 0.3
-                     , transformers ==0.3.*
-                     , containers
+  build-depends:       base >= 4.7 && < 5
+                     , machines <= 0.6.2
+                     , transformers <= 0.5.2.0
+                     , containers <= 0.5.7.1
